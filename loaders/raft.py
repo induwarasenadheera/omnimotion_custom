@@ -9,8 +9,17 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 import multiprocessing as mp
 from util import normalize_coords, gen_grid_np
+from PIL import Image
 
-
+def load_image4(imfile):
+    img = np.array(Image.open(imfile)).astype(np.uint8)
+    img= Image.fromarray(img)
+    img = Image.merge("RGB", (img, img, img))
+    img= np.array(img)
+    #print('testttttttt',img.shape)
+    #img = img[:, :, np.newaxis]
+    
+    return img
 def get_sample_weights(flow_stats):
     sample_weights = {}
     for k in flow_stats.keys():
@@ -28,11 +37,12 @@ class RAFTExhaustiveDataset(Dataset):
         self.seq_name = os.path.basename(self.seq_dir.rstrip('/'))
         self.img_dir = os.path.join(self.seq_dir, 'color')
         self.flow_dir = os.path.join(self.seq_dir, 'raft_exhaustive')
-        img_names = sorted(os.listdir(self.img_dir))
+        # img_names = sorted(os.listdir(self.img_dir))
+        img_names = sorted([i for i in os.listdir(self.img_dir) if i[0] != '.'])
         self.num_imgs = min(self.args.num_imgs, len(img_names))
         self.img_names = img_names[:self.num_imgs]
 
-        h, w, _ = imageio.imread(os.path.join(self.img_dir, img_names[0])).shape
+        h, w, _ = load_image4(os.path.join(self.img_dir, img_names[0])).shape
         self.h, self.w = h, w
         max_interval = self.num_imgs - 1 if not max_interval else max_interval
         self.max_interval = mp.Value('i', max_interval)
@@ -79,8 +89,8 @@ class RAFTExhaustiveDataset(Dataset):
         frame_interval = abs(id1 - id2)
 
         # read image, flow and confidence
-        img1 = imageio.imread(os.path.join(self.img_dir, img_name1)) / 255.
-        img2 = imageio.imread(os.path.join(self.img_dir, img_name2)) / 255.
+        img1 = load_image4(os.path.join(self.img_dir, img_name1)) / 255.
+        img2 = load_image4(os.path.join(self.img_dir, img_name2)) / 255.
 
         flow_file = os.path.join(self.flow_dir, '{}_{}.npy'.format(img_name1, img_name2))
         flow = np.load(flow_file)
@@ -93,12 +103,7 @@ class RAFTExhaustiveDataset(Dataset):
         cycle_consistency_mask = masks[..., 0] > 0
         occlusion_mask = masks[..., 1] > 0
 
-        if frame_interval == 1:
-            mask = np.ones_like(cycle_consistency_mask)
-        else:
-            mask = cycle_consistency_mask | occlusion_mask
-
-         # if frame_interval == 1:
+        # if frame_interval == 1:
         #     mask = np.ones_like(cycle_consistency_mask)
         # else:
         #     mask = cycle_consistency_mask | occlusion_mask
