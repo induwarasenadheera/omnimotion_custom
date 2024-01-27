@@ -415,7 +415,7 @@ class BaseTrainer():
             weight_grad = None
         loss = masked_l1_loss(pred_grad, gt_grad, weight_grad)
         return loss
-
+    
     def compute_all_losses(self,
                            batch,
                            w_rgb=1,
